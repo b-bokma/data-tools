@@ -1,0 +1,33 @@
+{
+  "Comment": "A step function State machine that downloads data from quicksight, stores it on S3, creates a table via Glue, creates a view on athena and loads that into quicksight",
+  "StartAt": "Pass",
+  "States": {
+    "Pass": {
+      "Comment": "A Pass state passes its input to its output, without performing work. Can easily check the payload with this",
+      "Type": "Pass",
+      "ResultPath": null,
+      "Next": "DownloadExchangeRates"
+    },
+    "DownloadExchangeRates": {
+      "Comment": "Lambda function to download exchange rates from currencylayer api",
+      "Type": "Task",
+      "Resource": "${DownloadExchangeRatesArn}",
+      "Parameters": {
+        "currency_codes": "['EUR', 'GBP', 'AED', 'USD', 'AUD', 'SGD', 'CAD']"
+      },
+      "Next": "ExtractExchangeRates"
+    },
+    "ExtractExchangeRates": {
+      "Comment": "move exchange rates from landing (json) to raw (parquet)",
+      "Type": "Task",
+      "Resource": "${ExtractExchangeRatesArn}",
+      "InputPath": "$",
+      "Next": "End_of_process"
+    },
+    "End_of_process": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
+

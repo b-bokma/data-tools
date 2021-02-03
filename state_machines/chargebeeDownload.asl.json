@@ -1,0 +1,355 @@
+{
+  "Comment": "A step function State machine that downloads data from quicksight, stores it on S3, creates a table via Glue, creates a view on athena and loads that into quicksight",
+  "StartAt": "Pass",
+  "States": {
+    "Pass": {
+      "Comment": "A Pass state passes its input to its output, without performing work. Can easily check the payload with this",
+      "Type": "Pass",
+      "ResultPath": null,
+      "Next": "DownloadChargebeeData"
+    },
+    "DownloadChargebeeData": {
+      "Type": "Parallel",
+      "Next": "End_of_process",
+      "Branches": [
+        {
+          "StartAt": "DownloadSubscriptionsEU",
+          "States": {
+            "DownloadSubscriptionsEU": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "eu"
+              },
+              "Next": "DataDownloadedChoiceEU"
+            },
+            "DataDownloadedChoiceEU": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessSubscriptionsEU"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoDataEU"
+                }
+              ],
+              "Default": "ProcessSubscriptionsEU"
+            },
+            "NoDataEU": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessSubscriptionsEU": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadSubscriptionsUS",
+          "States": {
+            "DownloadSubscriptionsUS": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "us"
+              },
+              "Next": "DataDownloadedChoiceUS"
+            },
+            "DataDownloadedChoiceUS": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "InputPath": "$",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessSubscriptionsUS"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoDataUS"
+                }
+              ],
+              "Default": "ProcessSubscriptionsUS"
+            },
+            "NoDataUS": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessSubscriptionsUS": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadSubscriptionsUK",
+          "States": {
+            "DownloadSubscriptionsUK": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "uk"
+              },
+              "Next": "DataDownloadedChoiceUK"
+            },
+            "DataDownloadedChoiceUK": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "InputPath": "$",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessSubscriptionsUK"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoDataUK"
+                }
+              ],
+              "Default": "ProcessSubscriptionsUK"
+            },
+            "NoDataUK": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessSubscriptionsUK": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeSubscriptionsArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadCustomersEU",
+          "States": {
+            "DownloadCustomersEU": {
+              "Comment": "Lambda function to download all files from the Customers endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeCustomersArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "eu"
+              },
+              "Next": "DataDownloadedCustomersChoiceEU"
+            },
+            "DataDownloadedCustomersChoiceEU": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "InputPath": "$",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessCustomersEU"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoCustomerDataEU"
+                }
+              ],
+              "Default": "ProcessCustomersEU"
+            },
+            "NoCustomerDataEU": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessCustomersEU": {
+              "Comment": "Lambda function to download all files from the customers endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeCustomersArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadCustomersUS",
+          "States": {
+            "DownloadCustomersUS": {
+              "Comment": "Lambda function to download all files from the Customers endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeCustomersArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "us"
+              },
+              "Next": "DataDownloadedCustomersChoiceUS"
+            },
+            "DataDownloadedCustomersChoiceUS": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "InputPath": "$",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessCustomersUS"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoCustomerDataUS"
+                }
+              ],
+              "Default": "ProcessCustomersUS"
+            },
+            "NoCustomerDataUS": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessCustomersUS": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeCustomersArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadCustomersUK",
+          "States": {
+            "DownloadCustomersUK": {
+              "Comment": "Lambda function to download all files from the Customers endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeCustomersArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "uk"
+              },
+              "Next": "DataDownloadedCustomersChoiceUK"
+            },
+            "DataDownloadedCustomersChoiceUK": {
+              "Comment": "A Choice state adds branching logic to a state machine. Choice rules can implement 16 different comparison operators, and can be combined using And, Or, and Not",
+              "Type": "Choice",
+              "InputPath": "$",
+              "Choices": [
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 200,
+                  "Next": "ProcessCustomersUK"
+                },
+                {
+                  "Variable": "$.statusCode",
+                  "NumericEquals": 404,
+                  "Next": "NoCustomerDataUK"
+                }
+              ],
+              "Default": "ProcessCustomersUK"
+            },
+            "NoCustomerDataUK": {
+              "Type": "Pass",
+              "End": true
+            },
+            "ProcessCustomersUK": {
+              "Comment": "Lambda function to download all files from the subscription endpoint",
+              "Type": "Task",
+              "Resource": "${ExtractChargebeeCustomersArn}",
+              "Parameters": {
+                "Body.$": "$.Body",
+                "UpdateTimestamp.$": "$.UpdateTimestamp",
+                "Instance.$": "$.Instance"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadInvoicesEU",
+          "States": {
+            "DownloadInvoicesEU": {
+              "Comment": "Lambda function to download all files from the invoices endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeInvoicesArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "eu"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadInvoicesUS",
+          "States": {
+            "DownloadInvoicesUS": {
+              "Comment": "Lambda function to download all files from the invoices endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeInvoicesArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "us"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "DownloadInvoicesUK",
+          "States": {
+            "DownloadInvoicesUK": {
+              "Comment": "Lambda function to download all files from the invoices endpoint",
+              "Type": "Task",
+              "Resource": "${DownloadChargebeeInvoicesArn}",
+              "Parameters": {
+                "last_updated.$": "$.last_updated",
+                "instance": "uk"
+              },
+              "End": true
+            }
+          }
+        }
+      ]
+    },
+    "End_of_process": {
+      "Type": "Pass",
+      "End": true
+    }
+  }
+}
+
