@@ -29,6 +29,7 @@ Resources:
         DownloadExchangeRatesArn: !GetAtt DownloadExchangeRates.Arn
         ExtractChargebeeSubscriptionsArn: !GetAtt ExtractChargebeeSubscriptions.Arn
         ExtractChargebeeCustomersArn: !GetAtt ExtractChargebeeCustomers.Arn
+        ChargebeeLatestStateArn: !GetAtt ChargebeeLatestState.Arn
       Policies:
         - AWSStepFunctionsFullAccess
         - AWSLambdaRole
@@ -74,7 +75,7 @@ Resources:
   ExchangeRatesState:
     Type: AWS::Serverless::StateMachine # More info about State Machine Resource: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-statemachine.html
     Properties:
-      DefinitionUri: state_machines/currencylayerDownload.asl.json
+      DefinitionUri: state_machines/exchangeRatesDownload.asl.json
       DefinitionSubstitutions:
         DownloadExchangeRatesArn: !GetAtt DownloadExchangeRates.Arn
         ExtractExchangeRatesArn: !GetAtt ExtractExchangeRates.Arn
@@ -86,7 +87,7 @@ Resources:
   StepfunctionInvoke:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src
+      CodeUri: src/utils
       Handler: invoke_stepfunction.lambda_handler
       MemorySize: 128
       Policies:
@@ -99,7 +100,9 @@ Resources:
         - !Ref Layer
       Environment:
         Variables:
-          STEPFUNCTIONARN: !GetAtt ChargebeeDownloadState.Arn
+          CHARGEBEEDOWNLOADARN: !GetAtt ChargebeeDownloadState.Arn
+          EXCHANGERATESDOWNLOADARN: !GetAtt ExchangeRatesState.Arn
+
       Events:
         InvocationLevel:
           Type: Schedule
@@ -174,7 +177,7 @@ Resources:
   DownloadExchangeRates:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/landing/currencylayer
+      CodeUri: src/landing/exchangerates
       Handler: exchange_rates.lambda_handler
       MemorySize: 128
       Timeout: 59
@@ -280,7 +283,7 @@ Resources:
   ExtractExchangeRates:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/extract/currencylayer
+      CodeUri: src/extract/exchangerates
       Handler: exchange_rates.lambda_handler
       MemorySize: 128
       Timeout: 59

@@ -13,11 +13,10 @@ session = boto3.Session()
 secret_client = session.client('secretsmanager')
 
 source_bucket_name = os.getenv('SOURCE_BUCKETNAME')
-source_bucket_name = "pp-quicksight-raw-pnj2hfj34mfr"
 target_bucket_name = os.getenv('TARGET_BUCKETNAME')
-target_bucket_name = "pp-quicksight-processed-15es5l8dbd14o"
 
-def extract_monthly_table(df_full, year, month, raw_bucket=source_bucket_name,manual_exchange_rates=None):
+
+def extract_monthly_table(df_full, year, month, raw_bucket=source_bucket_name, manual_exchange_rates=None):
     # define variables
     date_from = pd.to_datetime(f"{year}-{month}-01")
     days_in_month = calendar.monthrange(date_from.year, date_from.month)[1]
@@ -50,39 +49,24 @@ def extract_monthly_table(df_full, year, month, raw_bucket=source_bucket_name,ma
                                                                           ascending=[True, False])
 
     if manual_exchange_rates is None:
+
         # get exchange rate for date to value
-        secret_string = json.loads(secret_client.get_secret_value(SecretId='General')['SecretString'])
         currency_codes = chargebee_intermediate_data['currency_code'].unique()
-        print(currency_codes)
 
         output = list()
         date_to_str = date_to.strftime("%Y-%m-%d")
 
-        for currency_code in currency_codes:
-            currency = currency_code.upper()
-            params = {
-                'access_key': secret_string['CURRENCYLAYER_KEY'],
-                'currencies': f'{currency}',
-                'source': 'USD',
-                'date': date_to_str
-            }
+        url = f'https://api.exchangerate.host/{date_to_str}'
+        response = requests.get(url)
+        data = response.json()
 
-            r = requests.get(params=params, url=f'http://api.currencylayer.com/historical')
-            res = r.json()
-
-            if 'error' in res.keys():
-                return {'statusCode':400,'body':res['error']}
-
-            value = r.json()['quotes'][f'USD{currency}']
-            temp = {'currency_code': currency_code, 'rate_usd': value}
-            output.append(temp)
-
-        used_exchange_rates = pd.DataFrame(output)
-
-        EUR_VALUE = used_exchange_rates.loc[used_exchange_rates['currency_code'] == 'EUR', 'rate_usd'].values[0]
-        used_exchange_rates['rate'] = 1 / (used_exchange_rates['rate_usd']/EUR_VALUE)
-    else:
-        used_exchange_rates = pd.DataFrame(manual_exchange_rates)
+        df = pd.DataFrame(data).reset_index()
+        df = df[~df.rates.isna()]
+        df = df[['index', 'date', 'base', 'rates']]
+        df = df.rename(columns={'index': 'currency_code', 'rates': 'rate'})
+        used_exchange_rates = df.drop(['base', 'date'], axis=1)
+        used_exchange_rates['rate'] = 1 / used_exchange_rates['rate']
+        used_exchange_rates = used_exchange_rates.append(pd.DataFrame({"currency_code": ["EUR"], "rate": [1.0]}))
 
     chargebee_intermediate_data = chargebee_intermediate_data.merge(used_exchange_rates, on='currency_code', how='left')
     chargebee_intermediate_data = chargebee_intermediate_data.sort_values(['id', 'updated_at'], ascending=[True, False])
@@ -183,7 +167,11 @@ def extract_monthly_table(df_full, year, month, raw_bucket=source_bucket_name,ma
                 new_business_starting_date.started_at < filter_data_to)][
             'customer_id']), 'customer_new'] = True
 
-    return chargebee_intermediate_data_filtered[chargebee_intermediate_data_filtered['deleted'] == False]
+    if 'deleted' in chargebee_intermediate_data_filtered.columns:
+        return_df = chargebee_intermediate_data_filtered[chargebee_intermediate_data_filtered['deleted'] == False]
+    else:
+        return_df = chargebee_intermediate_data_filtered
+    return return_df
 
 
 def create_full_data(raw_bucket):
@@ -295,8 +283,8 @@ def lambda_handler(Event, Context):
         month=month,
         manual_exchange_rates=manual_exchange_rates
     )
+    print(df)
 
-    df = df[df.deleted == False]
     arr_excl_discount = df[(df.status.isin(['active', 'non_renewing']))]['ARR_EUR'].sum()
     arr_incl_discount = df[(df.status.isin(['active', 'non_renewing']))]['ARR_discount_EUR'].sum()
     mrr_excl_discount = df[df.status.isin(['active', 'non_renewing'])]['MRR_EUR'].sum()
@@ -309,7 +297,7 @@ def lambda_handler(Event, Context):
 
     print(f"Arr excluding discount for {year}-{month} is {arr_excl_discount:.2f}")
     print(f"Arr including discount for {year}-{month} is {arr_incl_discount:.2f}")
-    print(f"Mrr including discount for {year}-{month} is {mrr_incl_discount:.2f}")
+    print(f"Mrr excluding discount for {year}-{month} is {mrr_excl_discount:.2f}")
     print(f"Mrr including discount for {year}-{month} is {mrr_incl_discount:.2f}")
     print(f"Total value churned clients for {year}-{month} is {churned:.2f}")
     print(f"Total value new clients for {year}-{month} is {new_clients}")
@@ -317,11 +305,11 @@ def lambda_handler(Event, Context):
 
     wr.s3.to_parquet(
         df=df,
-        path=f"s3://{target_bucket_name}/chargebee/monthly/month={year}-{month}/",
+        path=f"s3://{target_bucket_name}/monthly/chargebee/month={year}-{month}/",
         dataset=True,
         mode="overwrite",
         compression='snappy'
     )
 
-    return({"statusCode":200, "Body":{"year":year, "month":month}})
+    return ({"statusCode": 200, "Body": {"year": year, "month": month}})
 

@@ -6,17 +6,17 @@ target_bucket_name = os.getenv('TARGET_BUCKETNAME')
 
 def lambda_handler(Event, Context):
 
-    df_exchange_rates = wr.s3.read_json(
+    df = wr.s3.read_json(
         path=Event['Body']['path'],
         lines=True,
         convert_dates=False,  # dont convert columns to dates
         convert_axes=False
     )
 
-    print(df_exchange_rates)
+    print(df)
 
     wr.s3.to_parquet(
-        df=df_exchange_rates,
+        df=df,
         path=f"s3://{target_bucket_name}/exchange_rates/",
         mode='append',
         dataset=True

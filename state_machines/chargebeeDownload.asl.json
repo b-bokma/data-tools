@@ -10,7 +10,7 @@
     },
     "DownloadChargebeeData": {
       "Type": "Parallel",
-      "Next": "End_of_process",
+      "Next": "StartChargebeeLatest",
       "Branches": [
         {
           "StartAt": "DownloadSubscriptionsEU",
@@ -346,10 +346,16 @@
         }
       ]
     },
-    "End_of_process": {
-      "Type": "Pass",
-      "End": true
-    }
+    "StartChargebeeLatest":{
+   "Type":"Task",
+   "Resource":"arn:aws:states:::states:startExecution",
+   "Parameters":{
+      "Input":{
+        "StateMachineArn": "${ChargebeeLatestStateArn}"
+       },
+      "StateMachineArn":"${ChargebeeLatestStateArn}"
+   },
+   "End":true
+}
   }
 }
-
